@@ -11,11 +11,16 @@ import (
 )
 
 var (
+	// Versioning
+	version = "dev"
+
 	// Flags
 	configPath   string
 	platformFlag string
 	logLevel     string
 	verbose      bool
+	outputFile   string
+	force        bool
 
 	// Root command
 	rootCmd = &cobra.Command{
@@ -65,7 +70,16 @@ It can check for, install, and verify dependencies on various platforms.`,
 		Use:   "version",
 		Short: "Show depman version",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Depman version 0.1.0")
+			fmt.Printf("Depman version %s\n", version)
+		},
+	}
+
+	// Generate command
+	generateCmd = &cobra.Command{
+		Use:   "generate",
+		Short: "Generate a template dependency configuration file",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runGenerate()
 		},
 	}
 )
@@ -90,6 +104,11 @@ func init() {
 	rootCmd.AddCommand(ensureCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(versionCmd)
+
+	// Add Generate Command
+	rootCmd.AddCommand(generateCmd)
+	generateCmd.Flags().StringVarP(&outputFile, "output", "o", "app-dependencies.yml", "Output file path")
+	generateCmd.Flags().BoolVarP(&force, "force", "f", false, "Force overwrite existing file")
 }
 
 // createManager creates a new dependency manager with the specified options
@@ -256,6 +275,80 @@ func runList() error {
 
 		fmt.Println()
 	}
+
+	return nil
+}
+
+// Add this function to handle the generate command
+func runGenerate() error {
+	// Check if file already exists
+	if _, err := os.Stat(outputFile); err == nil {
+		// File exists
+		if !force {
+			// Prompt user for confirmation
+			fmt.Printf("File %s already exists. Overwrite? [y/N] ", outputFile)
+			var response string
+			fmt.Scanln(&response)
+
+			if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+				fmt.Println("Operation cancelled.")
+				return nil
+			}
+		}
+	}
+
+	// Template content
+	template := `# Dependency configuration for depman
+version: "1.0"
+name: "My Application"
+description: "Application dependencies configuration"
+
+dependencies:
+  - name: "example-tool"
+    description: "Example tool dependency"
+    version:
+      required: "1.0.0"
+      constraint: "^1.0.0"
+    platforms:
+      windows:
+        installer:
+          type: "msi"
+          url: "https://example.com/tool-1.0.0-windows.msi"
+          checksum: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        commands:
+          install: ["msiexec", "/i", "{download_path}", "/quiet"]
+          verify: ["example-tool", "--version"]
+          uninstall: ["msiexec", "/x", "{download_path}", "/quiet"]
+      linux:
+        installer:
+          type: "tarball"
+          url: "https://example.com/tool-1.0.0-linux.tar.gz"
+          checksum: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        commands:
+          install: ["tar", "-xzf", "{download_path}", "-C", "/usr/local/bin"]
+          verify: ["example-tool", "--version"]
+      darwin:
+        installer:
+          type: "pkg"
+          url: "https://example.com/tool-1.0.0-macos.pkg"
+          checksum: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        commands:
+          install: ["installer", "-pkg", "{download_path}", "-target", "/"]
+          verify: ["example-tool", "--version"]
+    environment:
+      path: ["/usr/local/bin"]
+      variables:
+        EXAMPLE_HOME: "/usr/local/example"
+`
+
+	// Write the template to the file
+	err := os.WriteFile(outputFile, []byte(template), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write configuration file: %w", err)
+	}
+
+	fmt.Printf("Dependency configuration template created at %s\n", outputFile)
+	fmt.Println("Customize it with your actual dependencies and requirements.")
 
 	return nil
 }

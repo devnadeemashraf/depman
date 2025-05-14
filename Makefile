@@ -73,6 +73,13 @@ install:
 	@echo "Installing depman v${VERSION}..."
 	go install ${LDFLAGS} $(MAIN_PACKAGE)
 
+# Uninstall depman from the system
+uninstall:
+	@echo "Uninstalling depman..."
+	@go clean -i $(MAIN_PACKAGE)
+	@rm -f $(shell which depman 2>/dev/null) || echo "depman binary not found in PATH"
+	@echo "Uninstall complete."
+
 # Run linters
 lint:
 	@echo "Running linters..."

@@ -27,3 +27,4 @@ go.work.sum
 # Local Development Files and Folders
 /build
 /coverage
+app-dependencies.yml
